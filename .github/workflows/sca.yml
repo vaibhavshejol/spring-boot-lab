@@ -1,0 +1,75 @@
+name: Software Composition Analysis
+
+on:
+  workflow_dispatch:
+
+jobs:
+  sca-scan:
+    name: SCA Scan
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Set up JDK
+      uses: actions/setup-java@v4
+      with:
+        java-version: '21'
+        distribution: 'microsoft'
+
+    - name: Set up Gradle
+      uses: gradle/actions/setup-gradle@417ae3ccd767c252f5661f1ace9f835f9654f2b5 
+      with:
+        gradle-version: 8.5
+
+    - name: Set Gradle wrapper permissions
+      run: chmod +x ./gradlew
+
+    - name: Build application
+      run: ./gradlew build
+
+    - name: Run OWASP Dependency-Check
+      uses: dependency-check/Dependency-Check_Action@main
+      env:
+        JAVA_HOME: /opt/jdk
+      with:
+        project: 'SpringBootLab'
+        path: '.'
+        format: 'ALL'
+        out: 'reports'
+
+    - name: Upload HTML report
+      uses: actions/upload-artifact@v4
+      with:
+         name: HTML report
+         path: ./reports/dependency-check-report.html
+
+    - name: Verify directory contents
+      run: ls -alh ./reports
+    
+    - name: Login to GitHub Container Registry
+      run: echo ${{ secrets.GITHUB_TOKEN }} | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+    
+    - name: Packaging SARIF Report and Upload to Container Registry
+      run: |
+        mkdir -p reports
+        cp reports/dependency-check-report.sarif .
+        echo "FROM alpine" > Dockerfile
+        echo "COPY dependency-check-report.sarif /dependency-check-report.sarif" >> Dockerfile
+        echo "CMD [\"cat\", \"/dependency-check-report.sarif\"]" >> Dockerfile
+
+        REPO_OWNER=$(echo "${{ github.repository_owner }}" | tr '[:upper:]' '[:lower:]')
+        REPO_NAME=$(echo "${{ github.event.repository.name }}" | tr '[:upper:]' '[:lower:]')
+
+        IMAGE_TAG="ghcr.io/${REPO_OWNER}/${REPO_NAME}/dependency-check-report:latest"
+
+        docker build -t $IMAGE_TAG .
+        docker push "$IMAGE_TAG"
+        
+        echo "Pull Image Using Command: docker pull $IMAGE_TAG"
+        echo "Extract Report Using Command: docker run --rm $IMAGE_TAG > dependency-check-report.sarif"
