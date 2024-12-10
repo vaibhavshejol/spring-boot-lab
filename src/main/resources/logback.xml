@@ -1,0 +1,36 @@
+<configuration>
+
+    <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
+        <encoder>
+            <pattern>%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %m%n</pattern>
+        </encoder>
+    </appender>
+
+    <appender name="FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
+        <file>logs/spring-boot-lab.log</file>
+        <rollingPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedRollingPolicy">
+            <fileNamePattern>logs/spring-boot-lab.%d{yyyy-MM-dd}.%i.log</fileNamePattern>
+            <maxFileSize>10MB</maxFileSize>
+            <maxHistory>7</maxHistory>
+            <totalSizeCap>1GB</totalSizeCap>
+        </rollingPolicy>
+        <encoder>
+            <pattern>%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %m%n</pattern>
+        </encoder>
+    </appender>
+
+    <root level="info">
+        <appender-ref ref="CONSOLE" />
+        <appender-ref ref="FILE" />
+    </root>
+
+    <!-- Suppress logs for specific packages/classes at INFO level -->
+    <logger name="org.springframework.boot" level="WARN" />
+    <logger name="org.springframework.context.annotation.AnnotationConfigApplicationContext" level="WARN" />
+    <logger name="org.springframework.web.servlet.DispatcherServlet" level="WARN" />
+    <logger name="org.hibernate" level="WARN" />
+    <logger name="org.springframework.test.context.support.AnnotationConfigContextLoaderUtils" level="WARN" />
+    <logger name="org.springframework.test.web.servlet.TestDispatcherServlet" level="WARN" />
+    <logger name="org.junit" level="WARN" />
+    <logger name="org.mockito" level="WARN" />
+</configuration>
