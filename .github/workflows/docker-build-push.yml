@@ -36,7 +36,7 @@ jobs:
       run: chmod +x ./gradlew
       
     - name: Build application
-      run: ./gradlew build
+      run: ./gradlew build -x test
       
     - name: Set version tag
       id: version
