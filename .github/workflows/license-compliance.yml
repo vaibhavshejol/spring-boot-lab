@@ -1,0 +1,99 @@
+name: License Compliance Verificaton
+
+on:
+  workflow_dispatch:
+ 
+jobs:
+  lcv-scan:
+    name: LCV Scan
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up JDK
+        uses: actions/setup-java@v4
+        with:
+          java-version: '21'
+          distribution: 'microsoft'
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@417ae3ccd767c252f5661f1ace9f835f9654f2b5 
+        with:
+          gradle-version: '8.5'
+
+      - name: Set Gradle wrapper permissions
+        run: chmod +x gradlew
+
+      - name: Generate License Report
+        run: |
+          ./gradlew generateLicenseReport
+          find build -name "*.json" -type f
+
+      # Convert JSON report to compatible XML format
+      - name: Install jq
+        run: sudo apt-get install -y jq
+
+      - name: Convert License Report to JUnit XML
+        run: |
+          echo '<?xml version="1.0" encoding="UTF-8"?>' > license_finder_report.xml
+          echo '<testsuites>' >> license_finder_report.xml
+          echo '<testsuite name="License Compliance" tests="1">' >> license_finder_report.xml
+          LICENSE_JSON="build/reports/dependency-license/index.json"
+          if [ -f "$LICENSE_JSON" ]; then
+            jq -r '.dependencies[] | "  <testcase name=\"License Check - \(.moduleName)\" classname=\"License Compliance\">
+          <system-out>Module: \(.moduleName)\nLicense: \(.license)</system-out>
+          </testcase>"' "$LICENSE_JSON" >> license_finder_report.xml || {
+              echo "Error processing JSON file"
+              cat "$LICENSE_JSON"
+              exit 1
+            }
+          else
+            echo "Error: License report JSON file not found at $LICENSE_JSON"
+            find build -type f -name "*.json"
+            exit 1
+          fi
+          echo '</testsuite>' >> license_finder_report.xml
+          echo '</testsuites>' >> license_finder_report.xml
+
+      - name: Publish Test Results
+        uses: EnricoMi/publish-unit-test-result-action@v2.2.0
+        if: always()
+        with:
+          junit_files: "license_finder_report.xml"
+
+      - name: Upload License Reports to Artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: License Reports
+          path: |
+            build/reports/dependency-license/index.xml
+            build/reports/dependency-license/index.json
+            build/reports/dependency-license/index.html
+
+      - name: Publishing License Reports to GHCR
+        run: |
+          echo "Publishing License Reports to GitHub Packages"
+
+          echo ${{ secrets.GITHUB_TOKEN }} | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+
+          echo "FROM alpine" > Dockerfile
+          echo "COPY build/reports/dependency-license/index.json /license-report.json" >> Dockerfile
+          echo "CMD [\"cat\", \"/license-report.json\"]" >> Dockerfile
+
+          REPO_OWNER=$(echo "${{ github.repository_owner }}" | tr '[:upper:]' '[:lower:]')
+          REPO_NAME=$(echo "${{ github.event.repository.name }}" | tr '[:upper:]' '[:lower:]')
+
+          IMAGE_TAG="ghcr.io/${REPO_OWNER}/${REPO_NAME}-license-report:latest"
+
+          docker build -t $IMAGE_TAG .
+          docker push "$IMAGE_TAG"
+          
+          echo "Pull Image Using Command: docker pull $IMAGE_TAG"
+          echo "Extract Report Using Command: docker run --rm $IMAGE_TAG > license-report.json"
