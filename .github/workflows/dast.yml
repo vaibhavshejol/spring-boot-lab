@@ -34,9 +34,6 @@ jobs:
       - name: Build application
         run: ./gradlew build -x test
 
-      - name: Login to GitHub Container Registry
-        run: echo ${{ secrets.GITHUB_TOKEN }} | docker login ghcr.io -u ${{ github.actor }} --password-stdin
-    
       - name: Start Application Container
         run: docker compose up -d
     
@@ -172,7 +169,7 @@ jobs:
       - name: Verify directory contents
         run: ls -alh .
 
-      - name: Package SARIF Report & Upload to Container registry
+      - name: Publishing Report to GitHub Packages
         run: |
           echo "FROM alpine" > Dockerfile
           echo "COPY zap_report.sarif /dast-report.sarif" >> Dockerfile
@@ -182,6 +179,8 @@ jobs:
           REPO_NAME=$(echo "${{ github.event.repository.name }}" | tr '[:upper:]' '[:lower:]')
 
           IMAGE_TAG="ghcr.io/${REPO_OWNER}/${REPO_NAME}-dast-report:latest"
+
+          echo ${{ secrets.GITHUB_TOKEN }} | docker login ghcr.io -u ${{ github.actor }} --password-stdin
 
           docker build -t $IMAGE_TAG .
           docker push "$IMAGE_TAG"

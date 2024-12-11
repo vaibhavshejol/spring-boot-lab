@@ -77,12 +77,8 @@ jobs:
             build/reports/dependency-license/index.json
             build/reports/dependency-license/index.html
 
-      - name: Publishing License Reports to GHCR
+      - name: Publishing Report to GitHub Packages
         run: |
-          echo "Publishing License Reports to GitHub Packages"
-
-          echo ${{ secrets.GITHUB_TOKEN }} | docker login ghcr.io -u ${{ github.actor }} --password-stdin
-
           echo "FROM alpine" > Dockerfile
           echo "COPY build/reports/dependency-license/index.json /license-report.json" >> Dockerfile
           echo "CMD [\"cat\", \"/license-report.json\"]" >> Dockerfile
@@ -91,6 +87,8 @@ jobs:
           REPO_NAME=$(echo "${{ github.event.repository.name }}" | tr '[:upper:]' '[:lower:]')
 
           IMAGE_TAG="ghcr.io/${REPO_OWNER}/${REPO_NAME}-license-report:latest"
+
+          echo ${{ secrets.GITHUB_TOKEN }} | docker login ghcr.io -u ${{ github.actor }} --password-stdin
 
           docker build -t $IMAGE_TAG .
           docker push "$IMAGE_TAG"

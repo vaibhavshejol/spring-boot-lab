@@ -55,10 +55,8 @@ jobs:
     - name: Verify directory contents
       run: ls -alh ./reports
     
-    - name: Packaging SARIF Report and Upload to Container Registry
+    - name: Publishing Report to GitHub Packages
       run: |
-        echo "Publishing SCA Report to GitHub Packages"
-
         echo "FROM alpine" > Dockerfile
         echo "COPY reports/dependency-check-report.sarif /sca-report.sarif" >> Dockerfile
         echo "CMD [\"cat\", \"/sca-report.sarif\"]" >> Dockerfile
@@ -67,6 +65,8 @@ jobs:
         REPO_NAME=$(echo "${{ github.event.repository.name }}" | tr '[:upper:]' '[:lower:]')
 
         IMAGE_TAG="ghcr.io/${REPO_OWNER}/${REPO_NAME}-sca-report:latest"
+
+        echo ${{ secrets.GITHUB_TOKEN }} | docker login ghcr.io -u ${{ github.actor }} --password-stdin
 
         docker build -t $IMAGE_TAG .
         docker push "$IMAGE_TAG"
