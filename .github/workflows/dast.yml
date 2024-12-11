@@ -160,17 +160,14 @@ jobs:
             ]
           }' report_json.json > zap_report.sarif
 
-      # - name: Upload SARIF report
-      #   uses: actions/upload-artifact@v4
-      #   with:
-      #     name: DAST_Report.sarif
-      #     path: ./zap_report.sarif
-
-      - name: Upload HTML report
+      - name: Upload DAST Reports to Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: DAST_Report.html
-          path: ./report_html.html
+          name: DAST Reports
+          path: |
+            zap_report.sarif
+            report_json.json
+            report_html.html
 
       - name: Verify directory contents
         run: ls -alh .
@@ -178,19 +175,19 @@ jobs:
       - name: Package SARIF Report & Upload to Container registry
         run: |
           echo "FROM alpine" > Dockerfile
-          echo "COPY zap_report.sarif /zap_report.sarif" >> Dockerfile
-          echo "CMD [\"cat\", \"/zap_report.sarif\"]" >> Dockerfile
+          echo "COPY zap_report.sarif /dast-report.sarif" >> Dockerfile
+          echo "CMD [\"cat\", \"/dast-report.sarif\"]" >> Dockerfile
 
           REPO_OWNER=$(echo "${{ github.repository_owner }}" | tr '[:upper:]' '[:lower:]')
           REPO_NAME=$(echo "${{ github.event.repository.name }}" | tr '[:upper:]' '[:lower:]')
 
-          IMAGE_TAG="ghcr.io/${REPO_OWNER}/${REPO_NAME}/dast-report:latest"
+          IMAGE_TAG="ghcr.io/${REPO_OWNER}/${REPO_NAME}-dast-report:latest"
 
           docker build -t $IMAGE_TAG .
           docker push "$IMAGE_TAG"
 
           echo "Pull Image Using Command: docker pull $IMAGE_TAG"
-          echo "Extract Report Using Command: docker run --rm $IMAGE_TAG > zap_report.sarif"
+          echo "Extract Report Using Command: docker run --rm $IMAGE_TAG > dast-report.sarif"
 
       - name: Cleanup containers
         if: always()

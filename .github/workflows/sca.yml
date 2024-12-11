@@ -43,33 +43,33 @@ jobs:
         format: 'ALL'
         out: 'reports'
 
-    - name: Upload HTML report
+    - name: Upload SCA Reports to Artifact
       uses: actions/upload-artifact@v4
       with:
-         name: HTML report
-         path: ./reports/dependency-check-report.html
+         name: SCA Reports
+         path: |
+          reports/dependency-check-report.sarif
+          reports/dependency-check-report.json
+          reports/dependency-check-report.html
 
     - name: Verify directory contents
       run: ls -alh ./reports
     
-    - name: Login to GitHub Container Registry
-      run: echo ${{ secrets.GITHUB_TOKEN }} | docker login ghcr.io -u ${{ github.actor }} --password-stdin
-    
     - name: Packaging SARIF Report and Upload to Container Registry
       run: |
-        mkdir -p reports
-        cp reports/dependency-check-report.sarif .
+        echo "Publishing SCA Report to GitHub Packages"
+
         echo "FROM alpine" > Dockerfile
-        echo "COPY dependency-check-report.sarif /dependency-check-report.sarif" >> Dockerfile
-        echo "CMD [\"cat\", \"/dependency-check-report.sarif\"]" >> Dockerfile
+        echo "COPY reports/dependency-check-report.sarif /sca-report.sarif" >> Dockerfile
+        echo "CMD [\"cat\", \"/sca-report.sarif\"]" >> Dockerfile
 
         REPO_OWNER=$(echo "${{ github.repository_owner }}" | tr '[:upper:]' '[:lower:]')
         REPO_NAME=$(echo "${{ github.event.repository.name }}" | tr '[:upper:]' '[:lower:]')
 
-        IMAGE_TAG="ghcr.io/${REPO_OWNER}/${REPO_NAME}/dependency-check-report:latest"
+        IMAGE_TAG="ghcr.io/${REPO_OWNER}/${REPO_NAME}-sca-report:latest"
 
         docker build -t $IMAGE_TAG .
         docker push "$IMAGE_TAG"
         
         echo "Pull Image Using Command: docker pull $IMAGE_TAG"
-        echo "Extract Report Using Command: docker run --rm $IMAGE_TAG > dependency-check-report.sarif"
+        echo "Extract Report Using Command: docker run --rm $IMAGE_TAG > sca-report.sarif"
